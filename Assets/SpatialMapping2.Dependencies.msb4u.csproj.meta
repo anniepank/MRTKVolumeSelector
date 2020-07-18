@@ -1,0 +1,12 @@
+fileFormatVersion: 2
+guid: 9f0044507f2d23348bdde8036a89e919
+ScriptedImporter:
+  fileIDToRecycleName:
+    11400000: SpatialMapping2.Dependencies.msb4u
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 0e4dca1acba66fd478b3854f09a32ec7, type: 3}
+  buildEngine: 0
+  profiles: []
