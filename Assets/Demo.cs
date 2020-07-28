@@ -11,7 +11,9 @@ public class Demo : MonoBehaviour
     public void DoCut()
     {
         var mesh = MeshCutter.GetSpatialMesh();
-        MeshCutter.CutMeshToSelectionWithPlanes(mesh, Output, SelectionArea);
+        MeshCutter.SaveMesh(mesh, "combined");
+
+       MeshCutter.CutMeshToSelectionWithPlanes(mesh, Output, SelectionArea);
     }
     /*
     public MeshFilter Output;

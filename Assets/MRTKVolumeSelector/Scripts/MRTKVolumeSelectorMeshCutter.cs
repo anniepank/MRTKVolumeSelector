@@ -7,6 +7,14 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using System.Collections.Specialized;
+using System.Threading.Tasks;
+
+#if !UNITY_EDITOR
+using Windows.Storage.Streams;
+using Windows.Storage;
+using Windows.Web.Http;
+using System.ServiceModel;
+#endif
 
 public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
 {
@@ -41,34 +49,7 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
 
         return result;
     }
-
-    
-
-    /*
-
-    /// <summary>
-    /// Replace the mesh with tempMesh.
-    /// </summary>
-    Mesh ReplaceMesh(Mesh mesh, TempMesh tempMesh, MeshCollider collider = null)
-    {
-        var res = Instantiate(mesh);
-        res.SetVertices(tempMesh.vertices);
-        res.SetTriangles(tempMesh.triangles, 0);
-        res.SetNormals(tempMesh.normals);
-        // mesh.SetUVs(0, tempMesh.uvs);
-
-        //mesh.RecalculateNormals();
-        res.RecalculateTangents();
-
-        if (collider != null && collider.enabled)
-        {
-            collider.sharedMesh = mesh;
-            collider.convex = true;
-        }
-
-        return res;
-    }
-    */
+  
     void OnDrawGizmosSelected()
     {
         var plane1 = new UnityEngine.Plane(new Vector3(1f, 0f, 0f), new Vector3(-0.79f, -0.68f, 0.85f));
@@ -90,64 +71,13 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
             }
         }
     }
-    /*
-    public Mesh CutMeshToSelectionWithPlanes(Mesh mesh, GameObject selectionArea)
-    {
-        var newMesh = mesh;
-        var n2 = new Vector3(1, 0, 0);
-        n2 = selectionArea.transform.TransformDirection(n2);
-        var point2 = new Vector3(0.5f, 0, 0);
-        point2 = selectionArea.transform.TransformPoint(point2);
-        var plane2 = new Plane(n2, point2);
-
-        newMesh = CutMeshWithPlane(newMesh, ref plane2);
-
-      
-        return newMesh;
-        var n1 = new Vector3(1, 0, 0);
-        n1 = selectionArea.transform.InverseTransformDirection(n1);
-        var point1 = new Vector3(0.5f, 0, 0);
-        point1 = selectionArea.transform.TransformPoint(point1);
-        var plane1 = new Plane(n1, point1);
-
-        newMesh = CutMeshWithPlane(mesh, ref plane1);
-
-        return newMesh;
-    }
-
-    public Mesh CutMeshWithPlane(Mesh mesh, ref Plane plane)
-    {
-        var meshCutter = new MeshCutter(256);
-        var res = meshCutter.SliceMesh(mesh, ref plane);
-        if (!res)
-        {
-            return null;
-        }
-        var newMesh = meshCutter.NegativeMesh;
-        return ReplaceMesh(mesh, newMesh);
-    }
-    */
 
     public GameObject[] EzyCut(Vector3 point, Vector3 n, GameObject meshObject, GameObject selectionArea, bool intersectionOnly)
     {
         n = selectionArea.transform.TransformDirection(n);
         point = selectionArea.transform.TransformPoint(point);
 
-        var res = meshObject.SliceInstantiate(new EzySlice.Plane(point, -n), intersectionOnly);
-        /*
-        if (res is null)
-        {
-            Debug.Log("nothing to cut is null");
-        }
-        else if (res.Length == 2)
-        {
-            return res; // meshObject.GetComponent<MeshFilter>().mesh = res[0].GetComponent<MeshFilter>().mesh;
-            Destroy(res[0]);
-            Destroy(res[1]);
-        }
-        return null;
-        */
-        return res;
+        return meshObject.SliceInstantiate(new EzySlice.Plane(point, -n), intersectionOnly);
     }
 
     public void CutMeshToSelectionWithPlanes(Mesh mesh, GameObject meshObject, GameObject selectionArea)
@@ -164,7 +94,6 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
         };
         var meshFilter = gameObject.AddComponent<MeshFilter>();
 
-        var i = 0;
         foreach (var n in planes.Keys)
         {
             var point = planes[n];
@@ -174,7 +103,7 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
             if (res is null)
             {
                 newMeshFilter = meshObject.GetComponent<MeshFilter>();
-                continue;
+
             }
             else if (res.Length == 2)
             {
@@ -199,7 +128,7 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
 
                 return result;
             });
-            if (res.Length == 2)
+            if (res != null && res.Length == 2)
             {
                 var listMeshFilters = new List<MeshFilter>() { newMeshFilter, meshFilter };
                 var combined = CombineMeshes(listMeshFilters);
@@ -207,76 +136,12 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
             }
             meshObject.GetComponent<MeshFilter>().mesh = meshFilter.mesh;
 
-
-            /*
-            var allPlanes = new OrderedDictionary() {
-                { new Vector3(1, 0, 0), new Vector3(0.5f, 0, 0) },
-                { new Vector3(-1, 0, 0), new Vector3(-0.5f, 0, 0) },
-                { new Vector3(0, 1, 0), new Vector3(0, 0.5f, 0) },
-                { new Vector3(0, -1, 0), new Vector3(0, -0.5f, 0) },
-                { new Vector3(0, 0, 1), new Vector3(0, 0, 0.5f) },
-                { new Vector3(0, 0, -1), new Vector3(0, 0, -0.5f) },
-            };
-            allPlanes.RemoveAt(i);
-            // allPlanes.Insert(0, n, point);
-
-            var originalMeshFilter = OriginalMesh.GetComponent<MeshFilter>();
-            var res = EzyCut((Vector3)point, (Vector3)n, OriginalMesh, selectionArea, true);
-            MeshFilter newMeshFilter = new MeshFilter();
-            if (res is null)
-            {
-                newMeshFilter = originalMeshFilter;
-                continue;
-            }
-            else if (res.Length == 2)
-            {
-                newMeshFilter = res[0].GetComponent<MeshFilter>();
-                Destroy(res[0]);
-                Destroy(res[1]);
-            }
-
-            Intersection.GetComponent<MeshFilter>().mesh = newMeshFilter.mesh;
-
-            var meshFilterVerticiesCut = new GameObject();
-            meshFilterVerticiesCut.AddComponent<MeshFilter>();
-            meshFilterVerticiesCut.GetComponent<MeshFilter>().mesh = CutMeshToSelection(meshObject.GetComponent<MeshFilter>().mesh, selectionArea);
-            var listMeshFilters = new List<MeshFilter>() { newMeshFilter, meshFilterVerticiesCut.GetComponent<MeshFilter>() };
-            var combined = CombineMeshes(listMeshFilters);
-            
-            Destroy(meshFilterVerticiesCut);
-            meshObject.GetComponent<MeshFilter>().mesh = combined;
-
-            var j = 0;
-            foreach (var normal in allPlanes.Keys)
-            {
-                if (j != i)
-                {
-                    var p = allPlanes[normal];
-                    var previousMesh = Intersection.GetComponent<MeshFilter>().mesh;
-                    res = EzyCut((Vector3)p, (Vector3)normal, Intersection, selectionArea, false);
-                    if (res is null)
-                    {
-                        Intersection.GetComponent<MeshFilter>().mesh = previousMesh;
-                    }
-                    else if (res.Length == 2)
-                    {
-                        Intersection.GetComponent<MeshFilter>().mesh = res[0].GetComponent<MeshFilter>().mesh;
-                        Destroy(res[0]);
-                        Destroy(res[1]);
-                    }
-                }
-                j++;
-            }
-            i++;
-
-            var list = new List<MeshFilter>() { Intersection.GetComponent<MeshFilter>(), meshObject.GetComponent<MeshFilter>() };
-            meshObject.GetComponent<MeshFilter>().mesh = CombineMeshes(list);
-        */
         }
+        meshObject.SetActive(true);
+        SaveMesh(meshObject.GetComponent<MeshFilter>().mesh, "cut");
         Destroy(meshFilter);
     }
-    //  (v) => Findindi(oldVer, select)
-    // ()
+
     public Mesh CutMeshToSelection(Mesh mesh, Func<Vector3[], List<int>> selectVertices)
     {
         var oldTriangles = mesh.triangles;
@@ -333,12 +198,44 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
     {
         var meshObserver = CoreServices.GetSpatialAwarenessSystemDataProvider<IMixedRealitySpatialAwarenessMeshObserver>();
         var meshFilters = new List<MeshFilter>(from meshFilter in meshObserver.Meshes.Values select meshFilter.Filter);
-
+        
         if (meshFilters.Count > 0)
         {
             return CombineMeshes(new List<MeshFilter>(from meshFilter in meshObserver.Meshes.Values select meshFilter.Filter));
         }
         return new Mesh();
+        
+    }
+
+    public void SaveMesh(Mesh mesh, string filename)
+    {
+            var stringMesh = ObjExporter.MeshToString(mesh);
+            Task.Factory.StartNew(() => TryPostJsonAsync(stringMesh, filename));
+    }
+
+    private async Task TryPostJsonAsync(string obj, string filename)
+    {
+#if !UNITY_EDITOR
+        try
+        {
+            HttpClient httpClient = new HttpClient();
+            Uri uri = new Uri("http://10.10.1.133:9000/" + filename);
+            HttpStringContent content = new HttpStringContent(
+                obj,
+                Windows.Storage.Streams.UnicodeEncoding.Utf8,
+                "application/json");
+            HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(
+                uri,
+                content);
+
+            httpResponseMessage.EnsureSuccessStatusCode();
+            var httpResponseBody = await httpResponseMessage.Content.ReadAsStringAsync();
+        }
+        catch (Exception ex)
+        {
+            // Write out any exceptions.
+        }
+#endif
     }
 
     public Mesh CombineMeshes(List<MeshFilter> meshFilters)
@@ -348,21 +245,44 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
         int i = 0;
         while (i < meshFilters.Count)
         {
-            combine[i].mesh = meshFilters[i].sharedMesh;
+            combine[i].mesh = meshFilters[i].mesh;
             combine[i].transform = meshFilters[i].transform.localToWorldMatrix;
             i++;
         }
+        // return Combine(combine);
+
         var mesh = new Mesh();
         if (combine.Length > 0)
             mesh.CombineMeshes(combine);
         return mesh;
     }
 
-    public Vector3 FindPlaneLineIntersection(Ray ray, UnityEngine.Plane plane)
+    public Mesh Combine(IEnumerable<CombineInstance> meshes)
     {
-        float enter;
-        plane.Raycast(ray, out enter);
-        return ray.GetPoint(enter);
+        var vs = new List<Vector3>();
+        var ts = new List<int>();
+        int vOffset = 0;
+        foreach (var ci in meshes)
+        {
+            var mVs = ci.mesh.vertices;
+            for (int i = 0; i < mVs.Length; i++)
+            {
+                vs.Add(ci.transform * mVs[i]);
+            }
+
+            var mTs = ci.mesh.triangles;
+            for (int i = 0; i < mTs.Length; i++)
+            {
+                ts.Add(vOffset + mTs[i]);
+            }
+
+            vOffset += mVs.Length;
+        }
+        var mesh = new Mesh();
+        mesh.SetVertices(vs);
+        mesh.SetTriangles(ts, 0);
+        mesh.RecalculateNormals();
+        return mesh;
     }
 
 }
