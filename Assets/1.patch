@@ -1,0 +1,101 @@
+From fa00b313d336ddd5d3f5e9305f2596c84561962a Mon Sep 17 00:00:00 2001
+From: SlimeQ <quincy120@gmail.com>
+Date: Thu, 5 Dec 2019 12:27:35 -0500
+Subject: [PATCH] Fixes #25 Floating point error causing artefacts.
+
+- Creates const Intersector.Epsilon to be used when determining which side of a plane a vector is on
+- Resolves logic issues when only one corner of a triangle is ON the slicing plane
+---
+ EzySlice/Framework/Intersector.cs | 11 ++++++++++-
+ EzySlice/Framework/Plane.cs       |  4 ++--
+ EzySlice/Slicer.cs                | 22 +++++++++++++++++++++-
+ 3 files changed, 33 insertions(+), 4 deletions(-)
+
+diff --git a/EzySlice/Framework/Intersector.cs b/EzySlice/Framework/Intersector.cs
+index 70ef30d..f59b9e7 100644
+--- a/EzySlice/Framework/Intersector.cs
++++ b/EzySlice/Framework/Intersector.cs
+@@ -17,6 +17,8 @@ public sealed class Intersector {
+             return Intersector.Intersect(pl, ln.positionA, ln.positionB, out q);
+         }
+ 
++        
++        public const float Epsilon = 0.0001f;
+         /**
+          * Perform an intersection between Plane and Line made up of points a and b. Intersection
+          * point will be stored in reference q. Function returns true if intersection has been
+@@ -29,7 +31,7 @@ public sealed class Intersector {
+             float t = (pl.dist - Vector3.Dot(normal, a)) / Vector3.Dot(normal, ab);
+ 
+             // need to be careful and compensate for floating errors
+-            if (t >= -float.Epsilon && t <= (1 + float.Epsilon)) {
++            if (t >= -Epsilon && t <= (1 + Epsilon)) {
+                 q = a + t * ab;
+ 
+                 return true;
+@@ -84,6 +86,13 @@ public sealed class Intersector {
+                 (sb == SideOfPlane.ON && sb == sc)) {
+                 return;
+             }
++            
++            // detect cases where one point is on the plane and the other two are on the same side
++            else if ((sa == SideOfPlane.ON && sb != SideOfPlane.ON && sb == sc) ||
++                     (sb == SideOfPlane.ON && sa != SideOfPlane.ON && sa == sc) ||
++                     (sc == SideOfPlane.ON && sa != SideOfPlane.ON && sa == sb)) {
++                return;
++            }
+ 
+             // keep in mind that intersection points are shared by both
+             // the upper HULL and lower HULL hence they lie perfectly
+diff --git a/EzySlice/Framework/Plane.cs b/EzySlice/Framework/Plane.cs
+index 54a4ec7..a6be679 100644
+--- a/EzySlice/Framework/Plane.cs
++++ b/EzySlice/Framework/Plane.cs
+@@ -83,11 +83,11 @@ public struct Plane {
+         public SideOfPlane SideOf(Vector3 pt) {
+             float result = Vector3.Dot(m_normal, pt) - m_dist;
+ 
+-            if (result > float.Epsilon) {
++            if (result > Intersector.Epsilon) {
+                 return SideOfPlane.UP;
+             }
+ 
+-            if (result < -float.Epsilon) {
++            if (result < -Intersector.Epsilon) {
+                 return SideOfPlane.DOWN;
+             }
+ 
+diff --git a/EzySlice/Slicer.cs b/EzySlice/Slicer.cs
+index 73b841f..abc9581 100644
+--- a/EzySlice/Slicer.cs
++++ b/EzySlice/Slicer.cs
+@@ -208,7 +208,27 @@ internal class SlicedSubmesh {
+                             crossHull.Add(result.intersectionPoints[i]);
+                         }
+                     } else {
+-                        SideOfPlane side = pl.SideOf(verts[i0]);
++                        SideOfPlane sa = pl.SideOf(verts[i0]);
++                        SideOfPlane sb = pl.SideOf(verts[i1]);
++                        SideOfPlane sc = pl.SideOf(verts[i2]);
++
++                        SideOfPlane side = SideOfPlane.ON;
++                        if (sa != SideOfPlane.ON)
++                        {
++                            side = sa;
++                        }
++                        
++                        if (sb != SideOfPlane.ON)
++                        {
++                            Debug.Assert(side == SideOfPlane.ON || side == sb);
++                            side = sb;
++                        }
++                        
++                        if (sc != SideOfPlane.ON)
++                        {
++                            Debug.Assert(side == SideOfPlane.ON || side == sc);
++                            side = sc;
++                        }
+ 
+                         if (side == SideOfPlane.UP || side == SideOfPlane.ON) {
+                             mesh.upperHull.Add(newTri);
+

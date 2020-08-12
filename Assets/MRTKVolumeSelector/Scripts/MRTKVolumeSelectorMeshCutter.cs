@@ -8,12 +8,16 @@ using System.Linq;
 using UnityEngine;
 using System.Collections.Specialized;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices.WindowsRuntime;
+using System.ServiceModel;
+
 
 #if !UNITY_EDITOR
 using Windows.Storage.Streams;
 using Windows.Storage;
 using Windows.Web.Http;
-using System.ServiceModel;
+#else
+using System.Net.Http;
 #endif
 
 public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
@@ -53,9 +57,6 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
     void OnDrawGizmosSelected()
     {
         var plane1 = new UnityEngine.Plane(new Vector3(1f, 0f, 0f), new Vector3(-0.79f, -0.68f, 0.85f));
-        // new Vector3(-0.79f, -0.68f, 0.85f));
-        // new Vector3(0.04f, 0.68f, 0.85f));
-        // Draws a blue line from this transform to the target
         Gizmos.color = Color.blue;
         var n = 5;
         for (var i = -n; i < n; i++)
@@ -210,7 +211,37 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
     public void SaveMesh(Mesh mesh, string filename)
     {
             var stringMesh = ObjExporter.MeshToString(mesh);
-            Task.Factory.StartNew(() => TryPostJsonAsync(stringMesh, filename));
+            Save(stringMesh, filename);
+    }
+
+    public void Save(string str, string filename)
+    {
+        Task.Factory.StartNew(() => TryPostJsonAsync(str, filename));
+    }
+
+    public async void TryPostBytesAsync(byte[] data, string filename)
+    {
+        try
+        {
+#if !UNITY_EDITOR
+            HttpClient httpClient = new HttpClient();
+            var byteContent = new HttpBufferContent(data.AsBuffer());
+#else
+            HttpClient httpClient = new HttpClient();
+            var byteContent = new ByteArrayContent(data);
+#endif
+            Uri uri = new Uri("http://10.10.1.133:9000/frame" + filename);
+
+            HttpResponseMessage reponse = await httpClient.PostAsync(uri, byteContent);
+            reponse.EnsureSuccessStatusCode();
+            var httpResponseBody = await reponse.Content.ReadAsStringAsync();
+
+        }
+        catch (Exception ex)
+        {
+
+        }
+       
     }
 
     private async Task TryPostJsonAsync(string obj, string filename)
@@ -224,9 +255,8 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
                 obj,
                 Windows.Storage.Streams.UnicodeEncoding.Utf8,
                 "application/json");
-            HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(
-                uri,
-                content);
+            HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(uri,
+content);
 
             httpResponseMessage.EnsureSuccessStatusCode();
             var httpResponseBody = await httpResponseMessage.Content.ReadAsStringAsync();
