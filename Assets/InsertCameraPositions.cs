@@ -6,7 +6,6 @@ using UnityEngine;
 
 public class InsertCameraPositions : MonoBehaviour
 {
-    public GameObject model;
     public GameObject Group;
     private Quaternion difference = new Quaternion();
 

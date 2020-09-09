@@ -68,11 +68,10 @@ public class Main : MonoBehaviour
     {
         var builder = new StringBuilder();
         var lines = new List<string>(File.ReadLines(filepath));
-        var sw = new Stopwatch();
-        sw.Start();
-        using (var fileObj = new StreamWriter(@"H:\tmp\photogrammetry\workflow\ct\ct_scaled_axes_switched.obj"))
+        
+        using (var fileObj = new StreamWriter(folder + @"ct\ct_scaled_axes_switched.obj"))
         {
-            using (var fileForRegistration = new StreamWriter(@"H:\tmp\photogrammetry\workflow\ct\ct_scaled_axes_switched.xyz"))
+            using (var fileForRegistration = new StreamWriter(folder + @"ct\ct_scaled_axes_switched.xyz"))
             {
                 for (var i = 0; i < lines.Count; i++)
                 {
@@ -100,19 +99,14 @@ public class Main : MonoBehaviour
                 }
             }
         }
-
-        sw.Stop();
-        UnityEngine.Debug.Log("ct preparation time");
-        UnityEngine.Debug.Log(sw.Elapsed);
     }
 
     public void Prepare3DFlowModelForRegistration(string filepath, float scaleFactor)
     {
         var builder = new StringBuilder();
         var lines = new List<string>(File.ReadLines(filepath));
-        var sw = new Stopwatch();
-        sw.Start();
-        using (var file = new StreamWriter(@"H:\tmp\photogrammetry\workflow\export\3dflow_scaled_axes_switched.xyz"))
+        
+        using (var file = new StreamWriter(folder + @"export\3dflow_scaled_axes_switched.xyz"))
         {
             for (var i = 0; i < lines.Count; i++)
             {
@@ -133,9 +127,7 @@ public class Main : MonoBehaviour
             }
         }
 
-        sw.Stop();
-        UnityEngine.Debug.Log("3dflow preparation time");
-        UnityEngine.Debug.Log(sw.Elapsed);
+       
     }
 
     public void TransformCT(string filepath, string transformationMatrixFile)
@@ -167,7 +159,7 @@ public class Main : MonoBehaviour
 
         var sw = new Stopwatch();
         sw.Start();
-        using (var file = new StreamWriter(@"H:\tmp\photogrammetry\workflow\export\transformed_ct.obj"))
+        using (var file = new StreamWriter(folder + @"export\transformed_ct.obj"))
         {
             for (var i = 0; i < objLines.Count; i++)
             {
@@ -261,11 +253,36 @@ public class Main : MonoBehaviour
         }
     }
 
+    private void run_cmd()
+    {
+        Process p = new Process();
+        p.StartInfo = new ProcessStartInfo()
+        {
+            FileName = "cmd.exe",
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        p.Start();
+        using (var sw = p.StandardInput)
+        {
+            if (sw.BaseStream.CanWrite)
+            {
+                sw.WriteLine(@"C:\ProgramData\Anaconda3\Scripts\activate.bat");
+                sw.WriteLine("\"C:\\ProgramData\\Anaconda3\\python.exe\" \"" + folder + "registration.py\"");
+            }
+        }
+        string output = p.StandardOutput.ReadToEnd();
+        p.WaitForExit();
+        UnityEngine.Debug.Log(output);
+    }
+
     void Start()
     {
         ObjImporter objImporter = new ObjImporter();
         Room.GetComponent<MeshFilter>().mesh = objImporter.ImportFile(folder + "room_knees.obj", false);
-        Model3DFlow.GetComponent<MeshFilter>().mesh = objImporter.ImportFile(folder + @"export\knees_model.obj", true);
+        Model3DFlow.GetComponent<MeshFilter>().mesh = objImporter.ImportFile(folder + @"export\3dflow.obj", true);
 
         var realPositions = GetCoordinates(folder + "externals.txt");
         var flowPositions = GetCoordinates(folder + @"export\externals.txt");
@@ -275,14 +292,31 @@ public class Main : MonoBehaviour
         SetGroupTransform(scaleFactor);
 
         Model3DFlow.transform.localScale = new Vector3(scaleFactor, scaleFactor, scaleFactor);
-        // Prepare3DFlowModelForRegistration(folder + @"export\knees_model.obj", scaleFactor);
+        /*
+        var sw = new Stopwatch();
+        sw.Start();
+        Prepare3DFlowModelForRegistration(folder + @"export\3dflow.obj", scaleFactor); // export\3dflow_scaled_axes_switched.xyz
+        sw.Stop();
+        UnityEngine.Debug.Log("3dflow preparation time");
+        UnityEngine.Debug.Log(sw.Elapsed);
+        */
+        /*
+        sw.Start();
+        PrepareCTFileForRegistration(folder + @"ct\465_model_509E2E540E363C39FCC3B1981E7D1C48_knee_skin.obj", ctScaleFactor); // ct\ct_scaled_axes_switched.obj ct\ct_scaled_axes_switched.xyz
+        sw.Stop();
+        UnityEngine.Debug.Log("ct preparation time");
+        UnityEngine.Debug.Log(sw.Elapsed);
+        */
+        /*
+        sw.Start();
+        run_cmd();
+        sw.Stop();
+        UnityEngine.Debug.Log("ct registration time");
+        UnityEngine.Debug.Log(sw.Elapsed);
+        */
 
-        // PrepareCTFileForRegistration(folder + @"ct\465_model_509E2E540E363C39FCC3B1981E7D1C48_knee_skin.obj", ctScaleFactor);
-
-        // run python script
-
-        // TransformCT(@"H:\tmp\photogrammetry\workflow\ct\ct_scaled_axes_switched.obj", @"H:\tmp\photogrammetry\workflow\export\transformation_matrix.txt");
-        var loadedObj = new OBJLoader().Load(@"H:\tmp\photogrammetry\workflow\export\transformed_ct.obj");
+        // TransformCT(folder + @"ct\ct_scaled_axes_switched.obj", folder + @"export\transformation_matrix.txt");
+        var loadedObj = new OBJLoader().Load(folder + @"export\transformed_ct.obj");
         var obj = Instantiate(loadedObj);
         CT.GetComponent<MeshFilter>().mesh = obj.transform.GetChild(0).GetComponent<MeshFilter>().mesh;
         Destroy(obj);
