@@ -27,16 +27,14 @@ public class CameraManager : MonoBehaviour
     private HoloLensCameraStream.Resolution _resolution;
     private VideoCapture _videoCapture;
     private byte[] _latestImageBytes;
-    private bool stopVideo;
 
-    // Frame gameobject, renderer and texture
-    private GameObject _picture;
-    private Renderer _pictureRenderer;
-    private Texture2D _pictureTexture;
-
-    private int frame_n = 0;
     private int _width = 0, _height = 0;
-    
+
+    public List<byte[]> Frames = new List<byte[]>();
+    public List<Matrix4x4> ProjectionMatrices = new List<Matrix4x4>();
+
+    public bool StopFrameCollection = false;
+    public Matrix4x4 ProjectionMatrix;
     public void StartRecording()
     {
 
@@ -78,7 +76,7 @@ public class CameraManager : MonoBehaviour
         cameraParams.rotateImage180Degrees = true; //If your image is upside down, remove this line.
         cameraParams.enableHolograms = false;
 
-        _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false);
+        // _pictureTexture = new Texture2D(_resolution.width, _resolution.height, TextureFormat.BGRA32, false);
 
 
         _videoCapture.StartVideoModeAsync(cameraParams, OnVideoModeStarted);
@@ -115,17 +113,68 @@ public class CameraManager : MonoBehaviour
             return;
 
 
-        Matrix4x4 camera2WorldMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(s.camera2WorldMatrix);
-        CameraPosition = camera2WorldMatrix.GetColumn(3);
-        
+        ProjectionMatrix = LocatableCameraUtils.ConvertFloatArrayToMatrix4x4(s.camera2WorldMatrix);
         sample.Dispose();
 
+    }
+    public Quaternion ExtractRotation(Matrix4x4 matrix)
+    {
+        Vector3 forward;
+        forward.x = matrix.m02;
+        forward.y = matrix.m12;
+        forward.z = matrix.m22;
+
+        Vector3 upwards;
+        upwards.x = matrix.m01;
+        upwards.y = matrix.m11;
+        upwards.z = matrix.m21;
+
+        return Quaternion.LookRotation(forward, upwards);
+    }
+
+    public Matrix4x4 ExtractRotationMatrix(Quaternion quaternion)
+    {
+        return Matrix4x4.Rotate(quaternion);
+    }
+
+    public Vector3 ExtractPosition(Matrix4x4 matrix)
+    {
+        Vector3 position;
+        position.x = matrix.m03;
+        position.y = matrix.m13;
+        position.z = matrix.m23;
+        return position;
     }
 
     public Vector3 GetCameraPosition()
     {
-        return CameraPosition;
+        return ExtractPosition(ProjectionMatrix);
     }
+    public Vector3 GetCameraPosition(Matrix4x4 matrix)
+    {
+        return ExtractPosition(matrix);
+    }
+
+    public Matrix4x4 GetCameraRotation()
+    {
+        return ExtractRotationMatrix(ExtractRotation(ProjectionMatrix));
+    }
+
+    public Matrix4x4 GetCameraRotation(Matrix4x4 matrix)
+    {
+        return ExtractRotationMatrix(ExtractRotation(matrix));
+    }
+
+    public Quaternion GetCameraRotationQuaternion()
+    {
+        return ExtractRotation(ProjectionMatrix);
+    }
+
+    public Quaternion GetCameraRotationQuaternion(Matrix4x4 matrix)
+    {
+        return ExtractRotation(matrix);
+    }
+
 
 #if !UNITY_EDITOR
     public async Task<byte[]> ConvertBitmapToPng(byte[] pixels, int width, int height) 
@@ -166,5 +215,16 @@ public class CameraManager : MonoBehaviour
 #endif
     }
 
-   
+    public async Task CollectFramesAsync()
+    {
+        Frames = new List<byte[]>();
+        while (true && !StopFrameCollection)
+        {
+            var delayTask = Task.Delay(800);
+            var frame = await GetImage();
+            Frames.Add(frame);
+            ProjectionMatrices.Add(ProjectionMatrix);
+            await delayTask; // wait until at least 10s elapsed since delayTask created
+        }
+    }
 }

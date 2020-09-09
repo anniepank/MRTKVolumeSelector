@@ -11,4 +11,7 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/CamStream/Examples/Projection Example/Projection Example.unity
     guid: c26c9a511df0b8f4890621a3e15abdeb
+  - enabled: 0
+    path: Assets/HololensCameraIntrinsicsChecker/CameraIntrinsicsChecker.unity
+    guid: e9c3866dc3554e24daefd88f83a5fb91
   m_configObjects: {}

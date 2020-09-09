@@ -93,6 +93,7 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
             { new Vector3(0, 0, 1), new Vector3(0, 0, 0.5f) },
             { new Vector3(0, 0, -1), new Vector3(0, 0, -0.5f) },
         };
+
         var meshFilter = gameObject.AddComponent<MeshFilter>();
 
         foreach (var n in planes.Keys)
@@ -219,7 +220,7 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
         Task.Factory.StartNew(() => TryPostJsonAsync(str, filename));
     }
 
-    public async void TryPostBytesAsync(byte[] data, string filename)
+    public async Task TryPostBytesAsync(byte[] data, string filename)
     {
         try
         {
