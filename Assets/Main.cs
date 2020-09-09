@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using UnityEngine;
 using Dummiesman;
+using System.Linq;
 
 public class Main : MonoBehaviour
 {
@@ -198,15 +199,72 @@ public class Main : MonoBehaviour
 
     }
 
+    public Vector3 MatchPosition(Vector3 currentPotision, Vector3 targetPosition, Quaternion difference)
+    {
+        return targetPosition - difference * currentPotision;
+    }
+
     public void MatchCameras(Vector3 currentPotision, Vector3 targetPosition, Quaternion difference)
     {
         Group.transform.rotation = difference * Group.transform.rotation;
         Group.transform.localPosition += targetPosition - difference * currentPotision;
     }
 
+    public Quaternion AverageQuaternions(List<Quaternion> multipleRotations)
+    {
+        //Global variable which holds the amount of rotations which
+        //need to be averaged.
+        int addAmount = 0;
+
+        //Global variable which represents the additive quaternion
+        Quaternion addedRotation = Quaternion.identity;
+
+        //The averaged rotational value
+        Quaternion averageRotation = new Quaternion();
+
+        //Loop through all the rotational values.
+        foreach (Quaternion singleRotation in multipleRotations)
+        {
+            //Temporary values
+            float w;
+            float x;
+            float y;
+            float z;
+
+            //Amount of separate rotational values so far
+            addAmount++;
+
+            float addDet = 1.0f / (float)addAmount;
+            addedRotation.w += singleRotation.w;
+            w = addedRotation.w * addDet;
+            addedRotation.x += singleRotation.x;
+            x = addedRotation.x * addDet;
+            addedRotation.y += singleRotation.y;
+            y = addedRotation.y * addDet;
+            addedRotation.z += singleRotation.z;
+            z = addedRotation.z * addDet;
+
+            //Normalize. Note: experiment to see whether you
+            //can skip this step.
+            float D = 1.0f / (w * w + x * x + y * y + z * z);
+            w *= D;
+            x *= D;
+            y *= D;
+            z *= D;
+
+            //The result is valid right away, without
+            //first going through the entire array.
+            averageRotation = new Quaternion(x, y, z, w);
+        }
+
+        return averageRotation;
+    }
 
     public void SetGroupTransform(float scaleFactor)
     {
+        var positions = new List<Vector3>();
+        var quaternions = new List<Quaternion>();
+        var rotation = new Quaternion();
         var camera3DFlow = new GameObject();
         var cameraTarget = new GameObject();
         var worldsRotationDifference = new Quaternion();
@@ -242,15 +300,21 @@ public class Main : MonoBehaviour
             var cameraPosition3DFlow = new Vector3(x * scaleFactor, z * scaleFactor, y * scaleFactor);
             var newRotation = rotate3dflowToWorld(rotationX3DFlow, rotationY3DFlow, rotationZ3DFlow);
 
-            if (i == 5)
-            {
-                var quaternion3DFlow = rotate3dflowToWorld(rotationX3DFlow, rotationY3DFlow, rotationZ3DFlow);
-                var quaternionReal = realCameraRotation * Quaternion.AngleAxis(180, new Vector3(0, 1, 0));
-                worldsRotationDifference = quaternionReal * Quaternion.Inverse(quaternion3DFlow);
+            var quaternion3DFlow = rotate3dflowToWorld(rotationX3DFlow, rotationY3DFlow, rotationZ3DFlow);
+            var quaternionReal = realCameraRotation * Quaternion.AngleAxis(180, new Vector3(0, 1, 0));
+            worldsRotationDifference = quaternionReal * Quaternion.Inverse(quaternion3DFlow);
 
-                MatchCameras(cameraPosition3DFlow, realCameraPosition, worldsRotationDifference);
-            }
+            quaternions.Add(worldsRotationDifference);
+            // MatchCameras(cameraPosition3DFlow, realCameraPosition, worldsRotationDifference);
+            positions.Add(MatchPosition(cameraPosition3DFlow, realCameraPosition, worldsRotationDifference));
         }
+        Group.transform.rotation = AverageQuaternions(quaternions);
+        Group.transform.position = new Vector3(
+            positions.Select(v => v.x).ToList().Sum() / positions.Count,
+            positions.Select(v => v.y).ToList().Sum() / positions.Count,
+            positions.Select(v => v.z).ToList().Sum() / positions.Count
+            );
+
     }
 
     private void run_cmd()
