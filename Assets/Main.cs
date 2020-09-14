@@ -17,7 +17,7 @@ public class Main : MonoBehaviour
     private string folder = @"H:\tmp\photogrammetry\workflow\";
     private float ctScaleFactor = 0.012f;
 
-    private Dictionary<string, Vector3> GetCoordinates(string filepath)
+    private Dictionary<string, Vector3> ParseCoordinatesFromFile(string filepath)
     {
         var positions = new Dictionary<string, Vector3>();
         var lines = new List<string>(File.ReadLines(filepath));
@@ -68,6 +68,7 @@ public class Main : MonoBehaviour
     public void PrepareCTFileForRegistration(string filepath, float scaleFactor)
     {
         var builder = new StringBuilder();
+        var builder2 = new StringBuilder();
         var lines = new List<string>(File.ReadLines(filepath));
         
         using (var fileObj = new StreamWriter(folder + @"ct\ct_scaled_axes_switched.obj"))
@@ -80,24 +81,26 @@ public class Main : MonoBehaviour
                     {
 
                         var split = lines[i].Split(' ');
-                        var coordinates = new Vector3(
-                            float.Parse(split[1]),
-                            float.Parse(split[2]),
-                            float.Parse(split[3])
-                            );
-                        fileObj.WriteLine("v " + (-coordinates.x * scaleFactor).ToString("0.00000") + " "
-                        + (coordinates.z * scaleFactor).ToString("0.00000") + " "
-                        + (coordinates.y * scaleFactor).ToString("0.00000"));
+                        var x = float.Parse(split[1]);
+                        var y = float.Parse(split[2]);
+                        var z = float.Parse(split[3]);
 
-                        fileForRegistration.WriteLine((-coordinates.x * scaleFactor).ToString("0.00000") + " "
-                        + (coordinates.z * scaleFactor).ToString("0.00000") + " "
-                        + (coordinates.y * scaleFactor).ToString("0.00000"));
+                        //builder.AppendFormat("v {0:0.00000} {1:0.00000} {2:0.00000}", -x * scaleFactor, z * scaleFactor, y * scaleFactor);
+                        builder.AppendFormat("v {0} {1} {2}\n", -x * scaleFactor, z * scaleFactor, y * scaleFactor);
+                        builder2.AppendFormat("{0} {1} {2}\n", -x * scaleFactor, z * scaleFactor, y * scaleFactor);
+                        // builder.AppendFormat("v {0:0.00000} ", -x * scaleFactor);
+                        // builder2.AppendLine(string.Format("{0:0.00000} {1:0.00000} {2:0.00000}", -x * scaleFactor, z * scaleFactor, y * scaleFactor));
+                        // fileObj.WriteLine(string.Format("v {0:0.00000} {1:0.00000} {2:0.00000}", -x * scaleFactor, z * scaleFactor, y * scaleFactor));
+                        // fileForRegistration.WriteLine(string.Format("{0:0.00000} {1:0.00000} {2:0.00000}", -x * scaleFactor, z * scaleFactor, y * scaleFactor));
                     }
                     else
                     {
-                        fileObj.WriteLine(lines[i]);
+                        builder.AppendLine(lines[i]);
+                        // fileObj.WriteLine(lines[i]);
                     }
                 }
+                fileForRegistration.Write(builder2.ToString());
+                fileObj.Write(builder.ToString());
             }
         }
     }
@@ -131,7 +134,7 @@ public class Main : MonoBehaviour
        
     }
 
-    public void TransformCT(string filepath, string transformationMatrixFile)
+    public void ApplyTransformObjFile(string filepath, string transformationMatrixFile)
     {
         var builder = new StringBuilder();
         var matrixFileLines = new List<string>(File.ReadLines(transformationMatrixFile));
@@ -147,8 +150,8 @@ public class Main : MonoBehaviour
         transformationMatrix.m03 = float.Parse(r0[3]);
         transformationMatrix.m10 = float.Parse(r1[0]);
         transformationMatrix.m11 = float.Parse(r1[1]);
-        transformationMatrix.m13 = float.Parse(r1[3]);
         transformationMatrix.m12 = float.Parse(r1[2]);
+        transformationMatrix.m13 = float.Parse(r1[3]);
         transformationMatrix.m20 = float.Parse(r2[0]);
         transformationMatrix.m21 = float.Parse(r2[1]);
         transformationMatrix.m22 = float.Parse(r2[2]);
@@ -158,8 +161,6 @@ public class Main : MonoBehaviour
         transformationMatrix.m32 = float.Parse(r3[2]);
         transformationMatrix.m33 = float.Parse(r3[3]);
 
-        var sw = new Stopwatch();
-        sw.Start();
         using (var file = new StreamWriter(folder + @"export\transformed_ct.obj"))
         {
             for (var i = 0; i < objLines.Count; i++)
@@ -182,10 +183,6 @@ public class Main : MonoBehaviour
                 }
             }
         }
-
-        sw.Stop();
-        UnityEngine.Debug.Log("3dflow preparation time");
-        UnityEngine.Debug.Log(sw.Elapsed);
     }
 
     private Quaternion rotate3dflowToWorld(float rotation_x_3dflow, float rotation_y_3dflow, float rotation_z_3dflow)
@@ -260,13 +257,10 @@ public class Main : MonoBehaviour
         return averageRotation;
     }
 
-    public void SetGroupTransform(float scaleFactor)
+    public Dictionary<string, Vector3> SetGroupTransform(float scaleFactor)
     {
         var positions = new List<Vector3>();
         var quaternions = new List<Quaternion>();
-        var rotation = new Quaternion();
-        var camera3DFlow = new GameObject();
-        var cameraTarget = new GameObject();
         var worldsRotationDifference = new Quaternion();
 
         string[] lines3DFlowPositionsFile = File.ReadAllLines(folder + @"\export\externals.txt", Encoding.UTF8);
@@ -284,7 +278,7 @@ public class Main : MonoBehaviour
             var rotationZRealCamera = float.Parse(split[6]);
 
             var realCameraPosition = new Vector3(x, y, z);
-            var realCameraRotation = Quaternion.Euler(rotationXRealCamera, rotationYRealCamera, rotationZRealCamera);
+            var realCameraRotation = Quaternion.Euler(new Vector3(rotationXRealCamera, rotationYRealCamera, rotationZRealCamera));
 
             // 3D FLOW
             var line = lines3DFlowPositionsFile[i];
@@ -308,13 +302,22 @@ public class Main : MonoBehaviour
             // MatchCameras(cameraPosition3DFlow, realCameraPosition, worldsRotationDifference);
             positions.Add(MatchPosition(cameraPosition3DFlow, realCameraPosition, worldsRotationDifference));
         }
-        Group.transform.rotation = AverageQuaternions(quaternions);
-        Group.transform.position = new Vector3(
+        /*
+        CT.transform.rotation = AverageQuaternions(quaternions);
+        CT.transform.localPosition += new Vector3(
             positions.Select(v => v.x).ToList().Sum() / positions.Count,
             positions.Select(v => v.y).ToList().Sum() / positions.Count,
             positions.Select(v => v.z).ToList().Sum() / positions.Count
             );
-
+            */
+        var res = new Dictionary<string, Vector3>();
+        res.Add("delta position", new Vector3(
+            positions.Select(v => v.x).ToList().Sum() / positions.Count,
+            positions.Select(v => v.y).ToList().Sum() / positions.Count,
+            positions.Select(v => v.z).ToList().Sum() / positions.Count
+            ));
+        res.Add("rotation", AverageQuaternions(quaternions).eulerAngles);
+        return res;
     }
 
     private void run_cmd()
@@ -342,46 +345,73 @@ public class Main : MonoBehaviour
         UnityEngine.Debug.Log(output);
     }
 
+    private Dictionary<string, List<float>> ParseTransformFile(string filepath) {
+        string[] lines3DFlowPositionsFile = File.ReadAllLines(filepath, Encoding.UTF8);
+        var qX = float.Parse(lines3DFlowPositionsFile[0].Split(' ').ToList()[0]);
+        var qY = float.Parse(lines3DFlowPositionsFile[0].Split(' ').ToList()[1]);
+        var qZ = float.Parse(lines3DFlowPositionsFile[0].Split(' ').ToList()[2]);
+        var qW = float.Parse(lines3DFlowPositionsFile[0].Split(' ').ToList()[3]);
+
+        var x = float.Parse(lines3DFlowPositionsFile[1].Split(' ').ToList()[0]);
+        var y = float.Parse(lines3DFlowPositionsFile[1].Split(' ').ToList()[1]);
+        var z = float.Parse(lines3DFlowPositionsFile[1].Split(' ').ToList()[2]);
+
+        var res = new Dictionary<string, List<float>>();
+        res.Add("delta position", new List<float>() { x, y, z });
+        res.Add("rotation", new List<float>() { qX, qY, qZ, qW });
+
+        return res;
+    }
+
+
     void Start()
     {
+        var q = Quaternion.Euler(new Vector3(10, 20, 30));
+        var angles = q.eulerAngles;
+
         ObjImporter objImporter = new ObjImporter();
         Room.GetComponent<MeshFilter>().mesh = objImporter.ImportFile(folder + "room_knees.obj", false);
         Model3DFlow.GetComponent<MeshFilter>().mesh = objImporter.ImportFile(folder + @"export\3dflow.obj", true);
 
-        var realPositions = GetCoordinates(folder + "externals.txt");
-        var flowPositions = GetCoordinates(folder + @"export\externals.txt");
+        var realPositions = ParseCoordinatesFromFile(folder + "externals.txt");
+        var flowPositions = ParseCoordinatesFromFile(folder + @"export\externals.txt");
 
-        var scaleFactor = GetScaleFactor(realPositions, flowPositions);
+        var scaleFactor3DFlow = GetScaleFactor(realPositions, flowPositions);
 
-        SetGroupTransform(scaleFactor);
+        SetGroupTransform(scaleFactor3DFlow);
+        var dict = ParseTransformFile(folder + @"export\transform.txt");
+        CT.transform.localRotation = new Quaternion(dict["rotation"][0], dict["rotation"][1], dict["rotation"][2], dict["rotation"][3]);
+        CT.transform.localPosition += new Vector3(dict["delta position"][0], dict["delta position"][1], dict["delta position"][2]);
 
-        Model3DFlow.transform.localScale = new Vector3(scaleFactor, scaleFactor, scaleFactor);
-        /*
+        Model3DFlow.transform.localScale = new Vector3(scaleFactor3DFlow, scaleFactor3DFlow, scaleFactor3DFlow);
         var sw = new Stopwatch();
+
+        /*
         sw.Start();
-        Prepare3DFlowModelForRegistration(folder + @"export\3dflow.obj", scaleFactor); // export\3dflow_scaled_axes_switched.xyz
+        Prepare3DFlowModelForRegistration(folder + @"export\3dflow.obj", scaleFactor3DFlow); // export\3dflow_scaled_axes_switched.xyz
         sw.Stop();
         UnityEngine.Debug.Log("3dflow preparation time");
         UnityEngine.Debug.Log(sw.Elapsed);
-        */
-        /*
+
         sw.Start();
         PrepareCTFileForRegistration(folder + @"ct\465_model_509E2E540E363C39FCC3B1981E7D1C48_knee_skin.obj", ctScaleFactor); // ct\ct_scaled_axes_switched.obj ct\ct_scaled_axes_switched.xyz
         sw.Stop();
         UnityEngine.Debug.Log("ct preparation time");
         UnityEngine.Debug.Log(sw.Elapsed);
-        */
-        /*
+
         sw.Start();
         run_cmd();
         sw.Stop();
         UnityEngine.Debug.Log("ct registration time");
         UnityEngine.Debug.Log(sw.Elapsed);
+
+        ApplyTransformObjFile(folder + @"ct\ct_scaled_axes_switched.obj", folder + @"export\transformation_matrix.txt");
+        Group.SetActive(false);
         */
 
-        // TransformCT(folder + @"ct\ct_scaled_axes_switched.obj", folder + @"export\transformation_matrix.txt");
         var loadedObj = new OBJLoader().Load(folder + @"export\transformed_ct.obj");
         var obj = Instantiate(loadedObj);
+
         CT.GetComponent<MeshFilter>().mesh = obj.transform.GetChild(0).GetComponent<MeshFilter>().mesh;
         Destroy(obj);
         Destroy(loadedObj);
