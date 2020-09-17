@@ -10,6 +10,9 @@ using System.Collections.Specialized;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.ServiceModel;
+using System.IO;
+using System.Text;
+using Dummiesman;
 
 
 #if !UNITY_EDITOR
@@ -27,6 +30,24 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
     public GameObject OriginalMesh;
     public GameObject Intersection;
 
+    public bool CTTransformIsReady = false;
+    public bool CTObjLoadingIsReady = false;
+
+    public object locker;
+    public Quaternion CTRotation = new Quaternion();
+    public Vector3 CTPosition = new Vector3();
+    public Vector3 CTScale = new Vector3(1, 1, 1); // new Vector3(0.012f, 0.012f, 0.012f);
+
+    public MeshLoaderInfo meshModelLoader = new MeshLoaderInfo();
+    private byte[] ctObj;
+#if !UNITY_EDITOR && UNITY_WSA
+    private readonly StorageFolder _localFolder = ApplicationData.Current.LocalFolder;
+#endif
+
+    public MRTKVolumeSelectorMeshCutter()
+    {
+       locker = new object();
+    }
     private bool IsVertexInAlignedAxisCube(Vector3 v)
     {
         return v.x >= -0.5f && v.x <= 0.5f &&
@@ -231,7 +252,7 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
             HttpClient httpClient = new HttpClient();
             var byteContent = new ByteArrayContent(data);
 #endif
-            Uri uri = new Uri("http://10.10.1.133:9000/frame" + filename);
+            Uri uri = new Uri("http://10.10.1.134:9000/frame" + filename);
 
             HttpResponseMessage reponse = await httpClient.PostAsync(uri, byteContent);
             reponse.EnsureSuccessStatusCode();
@@ -251,7 +272,7 @@ public class MRTKVolumeSelectorMeshCutter : MonoBehaviour
         try
         {
             HttpClient httpClient = new HttpClient();
-            Uri uri = new Uri("http://10.10.1.133:9000/" + filename);
+            Uri uri = new Uri("http://10.10.1.134:9000/" + filename);
             HttpStringContent content = new HttpStringContent(
                 obj,
                 Windows.Storage.Streams.UnicodeEncoding.Utf8,
@@ -267,6 +288,84 @@ content);
             // Write out any exceptions.
         }
 #endif
+    }
+
+    public async Task<string> TryGetAsync()
+    {
+        try
+        {
+            HttpClient httpClient = new HttpClient();
+            Uri uri = new Uri("http://10.10.1.134:9000/getCTTransform");
+            HttpResponseMessage httpResponseMessage = await httpClient.GetAsync(uri);
+            httpResponseMessage.EnsureSuccessStatusCode();
+            var responseString = await httpResponseMessage.Content.ReadAsStringAsync();
+            var transformString = responseString.Split(new string[] { "CT_SCAN" }, StringSplitOptions.None)[0];
+            var lineRotation = transformString.Split('\n')[0];
+            var linePosition = transformString.Split('\n')[1];
+            
+            var qX = float.Parse(lineRotation.Split(' ').ToList()[0]);
+            var qY = float.Parse(lineRotation.Split(' ').ToList()[1]);
+            var qZ = float.Parse(lineRotation.Split(' ').ToList()[2]);
+            var qW = float.Parse(lineRotation.Split(' ').ToList()[3]);
+
+            var x = float.Parse(linePosition.Split(' ').ToList()[0]);
+            var y = float.Parse(linePosition.Split(' ').ToList()[1]);
+            var z = float.Parse(linePosition.Split(' ').ToList()[2]);
+
+            var res = new Dictionary<string, List<float>>();
+            lock (locker)
+            {
+                CTRotation = new Quaternion(qX, qY, qZ, qW);
+                CTPosition = new Vector3(x, y, z);
+                CTTransformIsReady = true;
+            }
+
+            return responseString.Split(new string[] { "CT_SCAN" }, StringSplitOptions.None)[1];
+
+        }
+        catch (Exception ex)
+        {
+            // Write out any exceptions.
+        }
+        return "";
+        }
+
+    public async Task SaveObjFileAsync(string filename, byte[] obj)
+    {
+#if !UNITY_EDITOR && UNITY_WSA
+
+        var file = await _localFolder.CreateFileAsync(filename, CreationCollisionOption.ReplaceExisting);
+        using (var destination = await file.OpenStreamForWriteAsync())
+        {
+            await destination.WriteAsync(obj, 0, obj.Length);
+        }
+#else   
+        File.WriteAllBytes("H:\\App\\tmp\\" + filename, obj);
+#endif
+    }
+
+    private async Task<Stream> GetReadFileStreamAsync(string filename)
+    {
+#if !UNITY_EDITOR && UNITY_WSA
+        var file = await _localFolder.GetFileAsync(filename);
+        return await file.OpenStreamForReadAsync();
+#else
+        return File.OpenRead("H:\\App\\tmp\\" + filename);
+#endif
+    }
+
+    public async Task InsertCT() {
+
+        var ctObj = await TryGetAsync();
+        await SaveObjFileAsync("ct.obj", Encoding.UTF8.GetBytes(ctObj));
+        var fileStream = await GetReadFileStreamAsync("ct.obj");
+        var loader = new Dummiesman.OBJLoader();
+        var builder = loader.CustomLoad(fileStream);
+        meshModelLoader = new MeshLoaderInfo(builder, loader);
+        lock(locker)
+        {
+            CTObjLoadingIsReady = true;
+        }
     }
 
     public Mesh CombineMeshes(List<MeshFilter> meshFilters)

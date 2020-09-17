@@ -11,6 +11,7 @@ using System.Text;
 
 public class ObjImporter
 {
+#if UNITY_EDITOR
     private struct meshStruct
     {
         public Vector3[] vertices;
@@ -250,4 +251,5 @@ public class ObjImporter
             }
         }
     }
+#endif
 }

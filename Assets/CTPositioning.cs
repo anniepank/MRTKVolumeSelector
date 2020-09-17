@@ -11,6 +11,7 @@ namespace UnityTools
 {
     public class CTPositioning
     {
+#if UNITY_EDITOR
         private const string anacondaActivateBatFilepath = @"C:\ProgramData\Anaconda3\Scripts\activate.bat";
         private const string pythonPath = "\"C:\\ProgramData\\Anaconda3\\python.exe\" \"";
         private static string folder;
@@ -412,5 +413,7 @@ namespace UnityTools
             Console.WriteLine("End");
             return predefinedCTTransform;
         }
+#endif
+
     }
 }

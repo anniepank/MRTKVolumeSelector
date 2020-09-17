@@ -9,6 +9,8 @@ using System.Linq;
 
 public class Main : MonoBehaviour
 {
+
+#if UNITY_EDITOR
     public GameObject Room;
     public GameObject CT;
     public GameObject Model3DFlow;
@@ -50,7 +52,7 @@ public class Main : MonoBehaviour
             {
                 var frame2 = flowCoordinate2.Key;
 
-                if (frame1 != frame2 && realCoordinates.ContainsKey(frame1) && flowCoordinates.ContainsKey(frame2))
+                if (frame1 != frame2 && realCoordinates.ContainsKey(frame1) && realCoordinates.ContainsKey(frame2) && flowCoordinates.ContainsKey(frame2) && flowCoordinates.ContainsKey(frame1))
                 {
                     var distanceReal = Vector3.Distance(realCoordinates[frame1], realCoordinates[frame2]);
                     var distanceFlow = Vector3.Distance(flowCoordinates[frame1], flowCoordinates[frame2]);
@@ -85,18 +87,13 @@ public class Main : MonoBehaviour
                         var y = float.Parse(split[2]);
                         var z = float.Parse(split[3]);
 
-                        //builder.AppendFormat("v {0:0.00000} {1:0.00000} {2:0.00000}", -x * scaleFactor, z * scaleFactor, y * scaleFactor);
                         builder.AppendFormat("v {0} {1} {2}\n", -x * scaleFactor, z * scaleFactor, y * scaleFactor);
                         builder2.AppendFormat("{0} {1} {2}\n", -x * scaleFactor, z * scaleFactor, y * scaleFactor);
-                        // builder.AppendFormat("v {0:0.00000} ", -x * scaleFactor);
-                        // builder2.AppendLine(string.Format("{0:0.00000} {1:0.00000} {2:0.00000}", -x * scaleFactor, z * scaleFactor, y * scaleFactor));
-                        // fileObj.WriteLine(string.Format("v {0:0.00000} {1:0.00000} {2:0.00000}", -x * scaleFactor, z * scaleFactor, y * scaleFactor));
-                        // fileForRegistration.WriteLine(string.Format("{0:0.00000} {1:0.00000} {2:0.00000}", -x * scaleFactor, z * scaleFactor, y * scaleFactor));
+                        
                     }
                     else
                     {
                         builder.AppendLine(lines[i]);
-                        // fileObj.WriteLine(lines[i]);
                     }
                 }
                 fileForRegistration.Write(builder2.ToString());
@@ -265,7 +262,7 @@ public class Main : MonoBehaviour
 
         string[] lines3DFlowPositionsFile = File.ReadAllLines(folder + @"\export\externals.txt", Encoding.UTF8);
         string[] linesRealPositionsFile = File.ReadAllLines(folder + @"\externals.txt", Encoding.UTF8);
-        for (var i = 0; i < lines3DFlowPositionsFile.Length; i++)
+        for (var i = 0; i < linesRealPositionsFile.Length; i++)
         {
             // REAL
             var split = linesRealPositionsFile[i].Split(' ');
@@ -416,4 +413,5 @@ public class Main : MonoBehaviour
         Destroy(obj);
         Destroy(loadedObj);
     }
+#endif
 }
