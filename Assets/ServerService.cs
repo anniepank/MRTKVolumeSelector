@@ -42,9 +42,9 @@ public class ServerService
         return CTPosition;
     }
 
-    public void SendString(string str, string filename)
+    public async Task SendString(string str, string filename)
     {
-        Task.Factory.StartNew(() => TryPostJsonAsync(str, filename));
+        await TryPostJsonAsync(str, filename);
     }
 
     public async Task SendFrame(byte[] data, string filename)
@@ -52,17 +52,17 @@ public class ServerService
         await TryPostBytesAsync(data, filename);
     }
 
-    public void SendMesh(Mesh mesh, string filename)
+    public async Task SendMesh(Mesh mesh, string filename)
     {
         var stringMesh = ObjExporter.MeshToString(mesh);
-        SendString(stringMesh, filename);
+        await SendString(stringMesh, filename);
     }
 
 
-    public void SaveMesh(Mesh mesh, string filename)
+    public async Task SaveMesh(Mesh mesh, string filename)
     {
         var stringMesh = ObjExporter.MeshToString(mesh);
-        SendString(stringMesh, filename);
+        await SendString(stringMesh, filename);
     }
 
     public async Task TryPostBytesAsync(byte[] data, string filename)
@@ -132,6 +132,9 @@ content);
             var x = float.Parse(linePosition.Split(' ').ToList()[0]);
             var y = float.Parse(linePosition.Split(' ').ToList()[1]);
             var z = float.Parse(linePosition.Split(' ').ToList()[2]);
+
+            CTPosition = new Vector3(x, y, z);
+            CTRotation = new Quaternion(qX, qY, qZ, qW);
 
             var res = new Dictionary<string, List<float>>();
 

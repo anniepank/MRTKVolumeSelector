@@ -572,6 +572,10 @@ MonoBehaviour:
   CameraManager: {fileID: 1286370463}
   Output: {fileID: 1788679}
   CT: {fileID: 2064603960}
+  CTObjLoadingIsReady: 0
+  CTRotation: {x: 0, y: 0, z: 0, w: 0}
+  CTPosition: {x: 0, y: 0, z: 0}
+  CTScale: {x: 1, y: 1, z: 1}
 --- !u!4 &207407316
 Transform:
   m_ObjectHideFlags: 0
@@ -601,11 +605,6 @@ MonoBehaviour:
   Plane: {fileID: 1537795788}
   OriginalMesh: {fileID: 0}
   Intersection: {fileID: 0}
-  CTTransformIsReady: 0
-  CTObjLoadingIsReady: 0
-  CTRotation: {x: 0, y: 0, z: 0, w: 0}
-  CTPosition: {x: 0, y: 0, z: 0}
-  CTScale: {x: 0.012, y: 0.012, z: 0.012}
 --- !u!1001 &276684563
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1956,11 +1955,6 @@ MonoBehaviour:
   Plane: {fileID: 0}
   OriginalMesh: {fileID: 0}
   Intersection: {fileID: 0}
-  CTTransformIsReady: 0
-  CTObjLoadingIsReady: 0
-  CTRotation: {x: 0, y: 0, z: 0, w: 0}
-  CTPosition: {x: 0, y: 0, z: 0}
-  CTScale: {x: 0.012, y: 0.012, z: 0.012}
 --- !u!1 &1602464860
 GameObject:
   m_ObjectHideFlags: 0

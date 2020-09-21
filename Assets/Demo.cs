@@ -86,7 +86,7 @@ public class Demo : MonoBehaviour
     {
         var mesh = MeshCutter.GetSpatialMesh();
         var serverService = new ServerService();
-        serverService.SendMesh(mesh, "room_mesh");
+        await serverService.SendMesh(mesh, "room_mesh");
         CameraManager.StopFrameCollection = false;
         Task.Factory.StartNew(async () => {
 
@@ -139,7 +139,7 @@ public class Demo : MonoBehaviour
 
 
             }
-            serverService.SendString(result, "externals");
+            await serverService.SendString(result, "externals");
             frame_n = 0;
 #endif
             await InsertCT(serverService);
